@@ -1,0 +1,3108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lofi & Latte — 3D Virtual Study Cafe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-glass: rgba(24, 17, 13, 0.78);
+      --bg-glass-solid: rgba(28, 20, 15, 0.94);
+      --border-warm: rgba(235, 198, 158, 0.18);
+      --accent-amber: #e69d45;
+      --accent-amber-hover: #f3b05d;
+      --accent-sage: #7ea172;
+      --accent-terracotta: #d96b43;
+      --accent-gold: #f5c249;
+      --accent-pro: #64b5f6;
+      --text-main: #f7efe6;
+      --text-muted: #c2b19f;
+      --shadow-cozy: 0 12px 36px rgba(0, 0, 0, 0.45);
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-pill: 999px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #140e0b;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-main);
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      cursor: grab;
+    }
+
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+
+    /* 3D Floating Nameplates */
+    #labels-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+      overflow: hidden;
+    }
+
+    .avatar-label {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      background: rgba(22, 15, 11, 0.85);
+      border: 1px solid var(--border-warm);
+      backdrop-filter: blur(8px);
+      padding: 5px 11px;
+      border-radius: var(--radius-pill);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+      transition: opacity 0.2s ease;
+    }
+
+    .avatar-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-sage);
+      box-shadow: 0 0 8px var(--accent-sage);
+    }
+
+    .avatar-dot.break {
+      background: var(--accent-amber);
+      box-shadow: 0 0 8px var(--accent-amber);
+    }
+
+    .avatar-zone-tag {
+      color: var(--text-muted);
+      font-weight: 400;
+      font-size: 11px;
+    }
+
+    /* Glass Panel Utility */
+    .glass-panel {
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-warm);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-cozy);
+    }
+
+    /* Top Bar HUD */
+    .top-bar {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      pointer-events: none;
+      flex-wrap: wrap;
+    }
+
+    .top-bar > * {
+      pointer-events: auto;
+    }
+
+    .brand-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      border-radius: var(--radius-pill);
+    }
+
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-amber), var(--accent-terracotta));
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      box-shadow: 0 2px 10px rgba(230, 157, 69, 0.35);
+    }
+
+    .brand-title {
+      font-family: 'Fraunces', serif;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .room-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .room-badge:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+    }
+
+    .room-code-text {
+      color: var(--accent-amber);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+
+    /* Top Center Controls: Username + Beans + Guides */
+    .economy-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: var(--radius-pill);
+    }
+
+    .user-edit-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 5px 11px;
+      border-radius: var(--radius-pill);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .user-edit-pill:hover {
+      border-color: var(--accent-amber);
+      background: rgba(230, 157, 69, 0.14);
+    }
+
+    .user-inline-input {
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid var(--accent-amber);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 8px;
+      width: 125px;
+      outline: none;
+      user-select: text;
+    }
+
+    .beans-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(245, 194, 73, 0.14);
+      border: 1px solid rgba(245, 194, 73, 0.35);
+      padding: 5px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-gold);
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .beans-pill.pop {
+      transform: scale(1.16);
+    }
+
+    .guides-nav-btn {
+      background: linear-gradient(135deg, rgba(230, 157, 69, 0.22), rgba(217, 107, 67, 0.22));
+      border: 1px solid rgba(230, 157, 69, 0.45);
+      color: var(--text-main);
+      padding: 6px 13px;
+      border-radius: var(--radius-pill);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .guides-nav-btn:hover {
+      background: var(--accent-amber);
+      color: #1b120c;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: var(--radius-pill);
+    }
+
+    .icon-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-main);
+      padding: 7px 12px;
+      border-radius: var(--radius-pill);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .icon-btn.active {
+      background: rgba(230, 157, 69, 0.2);
+      border-color: rgba(230, 157, 69, 0.45);
+      color: var(--accent-amber);
+    }
+
+    .primary-btn {
+      background: var(--accent-amber);
+      color: #1b120c;
+      border: none;
+      padding: 8px 16px;
+      border-radius: var(--radius-pill);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.15s ease, background 0.2s ease;
+    }
+
+    .primary-btn:hover {
+      background: var(--accent-amber-hover);
+      transform: translateY(-1px);
+    }
+
+    /* Left Panel: Pomodoro & Ambient Mixer */
+    .left-dock {
+      position: fixed;
+      top: 78px;
+      left: 16px;
+      width: 295px;
+      z-index: 15;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+    }
+
+    .left-dock.collapsed {
+      transform: translateX(-320px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .panel-card {
+      padding: 16px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .panel-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    .reward-hint {
+      font-size: 11px;
+      color: var(--accent-gold);
+      font-weight: 600;
+    }
+
+    .timer-modes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.28);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      margin-bottom: 12px;
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 6px 4px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-btn.active {
+      background: rgba(230, 157, 69, 0.22);
+      color: var(--accent-amber);
+    }
+
+    .timer-display {
+      font-family: 'Fraunces', serif;
+      font-size: 46px;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: 0.02em;
+      line-height: 1.05;
+      margin: 6px 0 14px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .timer-controls .primary-btn {
+      flex: 1;
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .secondary-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      padding: 9px 13px;
+      border-radius: var(--radius-pill);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .secondary-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    /* Soundscape Sliders */
+    .sound-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 11px;
+    }
+
+    .sound-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .sound-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12.5px;
+      color: var(--text-main);
+    }
+
+    .sound-meta span:last-child {
+      color: var(--text-muted);
+      font-size: 11.5px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-amber);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(230, 157, 69, 0.5);
+    }
+
+    /* Right Panel: Study Room & Goals */
+    .right-dock {
+      position: fixed;
+      top: 78px;
+      right: 16px;
+      width: 310px;
+      max-height: calc(100vh - 155px);
+      z-index: 15;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+    }
+
+    .right-dock.collapsed {
+      transform: translateX(330px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .tabs-header {
+      display: flex;
+      border-bottom: 1px solid var(--border-warm);
+      margin-bottom: 12px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 8px 4px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .tab-btn.active {
+      color: var(--accent-amber);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 16%;
+      right: 16%;
+      height: 2px;
+      background: var(--accent-amber);
+      border-radius: 2px;
+    }
+
+    .tab-content {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 360px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    .tab-content::-webkit-scrollbar,
+    .modal-body-scroll::-webkit-scrollbar {
+      width: 4px;
+    }
+    .tab-content::-webkit-scrollbar-thumb,
+    .modal-body-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.18);
+      border-radius: 4px;
+    }
+
+    /* Peer list */
+    .peer-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+    }
+
+    .peer-info {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .peer-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #160f0b;
+    }
+
+    .peer-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Goals */
+    .goal-input-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .text-input {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-warm);
+      border-radius: 10px;
+      padding: 8px 11px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 12.5px;
+      outline: none;
+      user-select: text;
+    }
+
+    .text-input:focus {
+      border-color: var(--accent-amber);
+    }
+
+    .goal-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 10px;
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .goal-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .goal-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .goal-item.done span.goal-text {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+
+    .goal-check {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1.5px solid var(--accent-amber);
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .goal-item.done .goal-check {
+      background: var(--accent-sage);
+      border-color: var(--accent-sage);
+      color: #141a12;
+    }
+
+    .goal-bounty {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-gold);
+      background: rgba(245, 194, 73, 0.12);
+      padding: 2px 7px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .goal-item.done .goal-bounty {
+      color: var(--accent-sage);
+      background: rgba(126, 161, 114, 0.15);
+    }
+
+    /* Shared Notes */
+    .notes-area {
+      width: 100%;
+      min-height: 145px;
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid var(--border-warm);
+      border-radius: 10px;
+      padding: 10px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 12.5px;
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+      user-select: text;
+    }
+
+    .notes-area:focus {
+      border-color: var(--accent-amber);
+    }
+
+    /* Bottom Study Zone Bar */
+    .bottom-bar {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      border-radius: var(--radius-pill);
+      max-width: calc(100vw - 24px);
+      overflow-x: auto;
+    }
+
+    .zone-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 8px 14px;
+      border-radius: var(--radius-pill);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .zone-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .zone-btn.active {
+      background: var(--accent-amber);
+      color: #1b120c;
+      box-shadow: 0 4px 14px rgba(230, 157, 69, 0.35);
+    }
+
+    /* Modals */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 7, 5, 0.72);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      display: none;
+      place-items: center;
+      padding: 16px;
+    }
+
+    .modal-backdrop.open {
+      display: grid;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--bg-glass-solid);
+      border: 1px solid var(--border-warm);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.65);
+    }
+
+    .modal-card.wide {
+      max-width: 780px;
+      max-height: 86vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      gap: 12px;
+    }
+
+    .modal-title {
+      font-family: 'Fraunces', serif;
+      font-size: 21px;
+    }
+
+    .close-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: var(--text-main);
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .color-swatches {
+      display: flex;
+      gap: 10px;
+    }
+
+    .swatch-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    .swatch-btn.selected {
+      border-color: #fff;
+      transform: scale(1.12);
+    }
+
+    .copy-box {
+      display: flex;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 6px;
+      border-radius: 12px;
+      border: 1px solid var(--border-warm);
+    }
+
+    .copy-box input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      font-size: 12.5px;
+      padding: 0 8px;
+      outline: none;
+      user-select: text;
+    }
+
+    /* Study Guides Store & Reader */
+    .store-subbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-warm);
+      margin-bottom: 16px;
+    }
+
+    .filter-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .filter-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 5px 12px;
+      border-radius: var(--radius-pill);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .filter-pill.active {
+      background: rgba(230, 157, 69, 0.22);
+      border-color: rgba(230, 157, 69, 0.45);
+      color: var(--accent-amber);
+    }
+
+    .modal-body-scroll {
+      overflow-y: auto;
+      padding-right: 4px;
+      flex: 1;
+    }
+
+    .guides-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+      gap: 14px;
+    }
+
+    .guide-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-warm);
+      border-radius: 14px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .guide-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(230, 157, 69, 0.45);
+    }
+
+    .guide-badge {
+      display: inline-block;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+    }
+
+    .badge-free {
+      background: rgba(126, 161, 114, 0.2);
+      color: var(--accent-sage);
+    }
+
+    .badge-beans {
+      background: rgba(245, 194, 73, 0.2);
+      color: var(--accent-gold);
+    }
+
+    .badge-pro {
+      background: rgba(100, 181, 246, 0.2);
+      color: var(--accent-pro);
+    }
+
+    .guide-title {
+      font-family: 'Fraunces', serif;
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      line-height: 1.25;
+    }
+
+    .guide-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .guide-action-btn {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: none;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+
+    .guide-action-btn:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+    }
+
+    .btn-read {
+      background: var(--accent-sage);
+      color: #121810;
+    }
+
+    .btn-buy-beans {
+      background: var(--accent-gold);
+      color: #1b120c;
+    }
+
+    .btn-buy-pro {
+      background: linear-gradient(135deg, #64b5f6, #42a5f5);
+      color: #0d1824;
+    }
+
+    /* Guide Reader View */
+    .reader-box {
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid var(--border-warm);
+      border-radius: 14px;
+      padding: 20px;
+      line-height: 1.65;
+      font-size: 13.5px;
+      color: var(--text-main);
+      user-select: text;
+    }
+
+    .reader-box h3 {
+      font-family: 'Fraunces', serif;
+      color: var(--accent-amber);
+      margin: 14px 0 6px;
+      font-size: 17px;
+    }
+
+    .reader-box h3:first-child {
+      margin-top: 0;
+    }
+
+    .reader-box ul {
+      padding-left: 18px;
+      margin-bottom: 10px;
+    }
+
+    .reader-box li {
+      margin-bottom: 5px;
+    }
+
+    /* Simulated Checkout Box */
+    .checkout-summary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-warm);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .payment-methods {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .pay-method-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-warm);
+      color: var(--text-main);
+      padding: 9px 6px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .pay-method-btn.active {
+      border-color: var(--accent-pro);
+      background: rgba(100, 181, 246, 0.18);
+      color: var(--accent-pro);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      top: 74px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-16px);
+      background: rgba(34, 24, 18, 0.96);
+      border: 1px solid var(--accent-amber);
+      color: var(--text-main);
+      padding: 9px 18px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 70;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 920px) {
+      .left-dock, .right-dock {
+        width: 265px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .left-dock {
+        top: 122px;
+        width: calc(100vw - 32px);
+      }
+      .right-dock {
+        top: 122px;
+        width: calc(100vw - 32px);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D WebGL Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- Floating Avatar Nameplates -->
+  <div id="labels-layer"></div>
+
+  <!-- Toast Banner -->
+  <div id="toast" class="toast">Welcome to Lofi & Latte!</div>
+
+  <!-- Top Navigation & Room HUD -->
+  <header class="top-bar">
+    <div class="glass-panel brand-pill">
+      <div class="brand-icon">☕</div>
+      <span class="brand-title">Lofi &amp; Latte</span>
+      <div class="room-badge" id="copy-room-badge" title="Click to copy Room Invite Link">
+        <span>Room:</span>
+        <span class="room-code-text" id="room-code-display">LATTE4</span>
+        <span>📋</span>
+      </div>
+    </div>
+
+    <!-- Profile Username, Coffee Beans Currency & Study Guide Shop -->
+    <div class="glass-panel economy-bar">
+      <div class="user-edit-pill" id="username-pill" title="Click to rename yourself">
+        <span>👤</span>
+        <span id="display-username">Scholar</span>
+        <span style="font-size: 11px; color: var(--text-muted);">✎</span>
+      </div>
+      <div class="beans-pill" id="beans-pill" title="Earn Coffee Beans by completing study goals & focus timers!">
+        <span>☕</span>
+        <span id="beans-count">50</span>
+        <span style="font-size: 11px; font-weight: 600;">Beans</span>
+      </div>
+      <button class="guides-nav-btn" id="open-guides-btn">
+        <span>📚</span> Study Guides
+      </button>
+    </div>
+
+    <div class="glass-panel top-actions">
+      <button class="icon-btn" id="weather-btn" title="Cycle Outdoor Weather & Lighting">
+        <span id="weather-icon">🌇</span> <span id="weather-label">Golden Hour</span>
+      </button>
+      <button class="icon-btn active" id="toggle-left-btn" title="Toggle Focus Timer & Sound Mixer">
+        ⏱️ Focus
+      </button>
+      <button class="icon-btn active" id="toggle-right-btn" title="Toggle Study Group & Goals">
+        👥 Study Table (<span id="peer-count">1</span>)
+      </button>
+      <button class="primary-btn" id="open-invite-btn">
+        + Invite / Profile
+      </button>
+    </div>
+  </header>
+
+  <!-- Left Dock: Pomodoro Timer & Ambient Soundscape -->
+  <aside class="left-dock" id="left-dock">
+    <div class="glass-panel panel-card">
+      <div class="panel-header">
+        <span class="panel-title">Study Timer</span>
+        <span class="reward-hint">+40 ☕ / Focus</span>
+      </div>
+
+      <div class="timer-modes">
+        <button class="mode-btn active" data-minutes="25" data-mode="Focus">Focus 25m</button>
+        <button class="mode-btn" data-minutes="5" data-mode="Short Break">Break 5m</button>
+        <button class="mode-btn" data-minutes="15" data-mode="Long Break">Long 15m</button>
+      </div>
+
+      <div class="timer-display" id="timer-display">25:00</div>
+
+      <div class="timer-controls">
+        <button class="primary-btn" id="timer-start-btn">▶ Start Focus</button>
+        <button class="secondary-btn" id="timer-reset-btn" title="Reset Timer">↺</button>
+      </div>
+    </div>
+
+    <div class="glass-panel panel-card">
+      <div class="panel-header">
+        <span class="panel-title">Cafe Soundscape</span>
+        <button class="secondary-btn" id="mute-all-btn" style="padding: 3px 9px; font-size: 11px;">🔊 Audio On</button>
+      </div>
+
+      <div class="sound-row">
+        <div class="sound-meta">
+          <span>🌧️ Rain on Window</span>
+          <span id="vol-rain-val">35%</span>
+        </div>
+        <input type="range" id="vol-rain" min="0" max="100" value="35">
+      </div>
+
+      <div class="sound-row">
+        <div class="sound-meta">
+          <span>☕ Cafe Murmur &amp; Cups</span>
+          <span id="vol-cafe-val">40%</span>
+        </div>
+        <input type="range" id="vol-cafe" min="0" max="100" value="40">
+      </div>
+
+      <div class="sound-row">
+        <div class="sound-meta">
+          <span>🎹 Warm Lofi Chords</span>
+          <span id="vol-lofi-val">45%</span>
+        </div>
+        <input type="range" id="vol-lofi" min="0" max="100" value="45">
+      </div>
+
+      <div class="sound-row">
+        <div class="sound-meta">
+          <span>🔥 Hearth Crackle</span>
+          <span id="vol-fire-val">20%</span>
+        </div>
+        <input type="range" id="vol-fire" min="0" max="100" value="20">
+      </div>
+    </div>
+  </aside>
+
+  <!-- Right Dock: Friends, Shared Goals & Table Notes -->
+  <aside class="right-dock" id="right-dock">
+    <div class="glass-panel panel-card">
+      <div class="tabs-header">
+        <button class="tab-btn active" data-tab="peers">Tablemates</button>
+        <button class="tab-btn" data-tab="goals">Goals (+25 ☕)</button>
+        <button class="tab-btn" data-tab="notes">Table Notes</button>
+      </div>
+
+      <!-- Tab 1: Active Friends in Cafe -->
+      <div class="tab-content active" id="tab-peers">
+        <div id="peers-list"></div>
+        <button class="secondary-btn" id="add-demo-buddy-btn" style="width: 100%; margin-top: 4px; font-size: 12px;">
+          + Simulate Study Buddy Joining
+        </button>
+      </div>
+
+      <!-- Tab 2: Study Goals -->
+      <div class="tab-content" id="tab-goals">
+        <div style="font-size: 11.5px; color: var(--text-muted); display: flex; justify-content: space-between;">
+          <span>Complete goals to earn Coffee Beans</span>
+          <span style="color: var(--accent-gold); font-weight: 700;">+25 ☕ each</span>
+        </div>
+        <div class="goal-input-row">
+          <input type="text" class="text-input" id="goal-input" placeholder="Add a study goal..." maxlength="60">
+          <button class="primary-btn" id="add-goal-btn" style="padding: 8px 12px;">+</button>
+        </div>
+        <div id="goals-list" style="display: flex; flex-direction: column; gap: 6px;"></div>
+      </div>
+
+      <!-- Tab 3: Shared Scratchpad -->
+      <div class="tab-content" id="tab-notes">
+        <p style="font-size: 11.5px; color: var(--text-muted);">
+          Shared scratchpad synced across open tabs in the same room:
+        </p>
+        <textarea class="notes-area" id="shared-notes" placeholder="Drop study links, formulas, or accountability check-ins here..."></textarea>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Bottom Study Zones Navigation -->
+  <nav class="glass-panel bottom-bar" aria-label="Study Zones">
+    <button class="zone-btn active" data-zone="window">🪟 Window Booths</button>
+    <button class="zone-btn" data-zone="lounge">🪴 Quiet Reading Nook</button>
+    <button class="zone-btn" data-zone="group">📚 Group Study Table</button>
+    <button class="zone-btn" data-zone="bar">🥐 Espresso Bar</button>
+  </nav>
+
+  <!-- Invite & Avatar Customization Modal -->
+  <div class="modal-backdrop" id="invite-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Study Room &amp; Profile</h2>
+        <button class="close-btn" id="close-invite-btn">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Your Display Name (Shown in 3D Cafe &amp; Room)</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" class="text-input" id="profile-name-input" maxlength="18" placeholder="Enter your username">
+          <button class="primary-btn" id="save-name-btn" style="padding: 8px 14px;">Save</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Avatar Sweater Color</label>
+        <div class="color-swatches" id="color-swatches">
+          <button class="swatch-btn selected" data-color="#e69d45" style="background:#e69d45;"></button>
+          <button class="swatch-btn" data-color="#7ea172" style="background:#7ea172;"></button>
+          <button class="swatch-btn" data-color="#d96b43" style="background:#d96b43;"></button>
+          <button class="swatch-btn" data-color="#6b9ac4" style="background:#6b9ac4;"></button>
+          <button class="swatch-btn" data-color="#b5838d" style="background:#b5838d;"></button>
+          <button class="swatch-btn" data-color="#e0c097" style="background:#e0c097;"></button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Share Invite Link with Friends</label>
+        <div class="copy-box">
+          <input type="text" id="invite-url-input" readonly>
+          <button class="primary-btn" id="copy-link-btn" style="padding: 6px 12px;">Copy</button>
+        </div>
+        <p style="font-size: 11.5px; color: var(--text-muted); margin-top: 8px; line-height: 1.45;">
+          Tip: Open this link in another browser tab to test real-time multiplayer sync, or share your 6-letter Room Code!
+        </p>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Join Another Room Code</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" class="text-input" id="join-code-input" placeholder="e.g. COZY99" maxlength="8" style="text-transform: uppercase;">
+          <button class="secondary-btn" id="join-room-btn">Join Room</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Study Guides Library & Boutique Modal -->
+  <div class="modal-backdrop" id="guides-modal">
+    <div class="modal-card wide">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">📚 Cafe Study Guide Library</h2>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+            Unlock curated study playbooks using earned Coffee Beans or Pro Passes.
+          </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="beans-pill">
+            <span>☕</span>
+            <span id="modal-beans-count">50</span>
+            <span style="font-size: 11px;">Beans</span>
+          </div>
+          <button class="close-btn" id="close-guides-btn">✕</button>
+        </div>
+      </div>
+
+      <!-- Store View -->
+      <div id="guides-store-view" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+        <div class="store-subbar">
+          <div class="filter-pills" id="guide-filters">
+            <button class="filter-pill active" data-filter="all">All Guides</button>
+            <button class="filter-pill" data-filter="free">Free</button>
+            <button class="filter-pill" data-filter="beans">☕ Game Currency</button>
+            <button class="filter-pill" data-filter="pro">💎 Pro Editions</button>
+            <button class="filter-pill" data-filter="owned">Unlocked</button>
+          </div>
+          <span style="font-size: 11.5px; color: var(--accent-gold);">
+            Tip: Check off goals (+25 ☕) to earn more Beans!
+          </span>
+        </div>
+
+        <div class="modal-body-scroll">
+          <div class="guides-grid" id="guides-grid"></div>
+        </div>
+      </div>
+
+      <!-- Guide Reader View -->
+      <div id="guides-reader-view" style="display: none; flex-direction: column; flex: 1; overflow: hidden;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <button class="secondary-btn" id="back-to-store-btn" style="padding: 6px 12px; font-size: 12px;">
+            ← Back to Library
+          </button>
+          <span id="reader-badge" class="guide-badge badge-free" style="margin: 0;">Unlocked</span>
+        </div>
+        <h3 id="reader-title" style="font-family: 'Fraunces', serif; font-size: 20px; margin-bottom: 10px;"></h3>
+        <div class="modal-body-scroll">
+          <div class="reader-box" id="reader-content"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Real Currency Checkout Modal (Simulated GitHub Pages Checkout) -->
+  <div class="modal-backdrop" id="checkout-modal" style="z-index: 60;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">💎 Pro Edition Checkout</h2>
+        <button class="close-btn" id="close-checkout-btn">✕</button>
+      </div>
+
+      <div class="checkout-summary">
+        <div style="font-size: 11px; color: var(--accent-pro); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">
+          Instant Digital Unlock
+        </div>
+        <div id="checkout-item-title" style="font-family: 'Fraunces', serif; font-size: 18px; margin: 4px 0;">
+          Ultimate STEM &amp; Olympiad Playbook
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-warm);">
+          <span style="font-size: 12.5px; color: var(--text-muted);">Total Amount</span>
+          <span id="checkout-item-price" style="font-size: 18px; font-weight: 700; color: var(--text-main);">₹149 / $1.99</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Select Payment Method</label>
+        <div class="payment-methods" id="payment-methods">
+          <button class="pay-method-btn active" data-method="upi">📱 UPI / QR</button>
+          <button class="pay-method-btn" data-method="card">💳 Card</button>
+          <button class="pay-method-btn" data-method="demo">⚡ Demo Pass</button>
+        </div>
+      </div>
+
+      <div class="form-group" id="payment-detail-box">
+        <label class="form-label" id="payment-input-label">UPI ID or Email for Receipt</label>
+        <input type="text" class="text-input" id="payment-input" placeholder="scholar@upi" style="width: 100%;">
+      </div>
+
+      <button class="primary-btn" id="confirm-purchase-btn" style="width: 100%; justify-content: center; padding: 11px; background: linear-gradient(135deg, #64b5f6, #42a5f5); color: #0b1622;">
+        Complete Purchase &amp; Unlock
+      </button>
+      <p style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 10px;">
+        Sandbox Checkout Mode for GitHub Pages — unlocks guide immediately in your browser profile.
+      </p>
+    </div>
+  </div>
+
+  <!-- Three.js CDN Import Map -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    /* ==========================================================================
+       1. STUDY GUIDES CATALOG
+       ========================================================================== */
+    const STUDY_GUIDES = [
+      {
+        id: 'pomodoro-101',
+        title: 'Pomodoro & Deep Work 101',
+        tier: 'free',
+        priceLabel: 'Free',
+        desc: 'Master 25/5 focus sprints, eliminate context switching, and build a distraction-proof desk ritual.',
+        content: `
+          <h3>1. The Anatomy of a 25-Minute Sprint</h3>
+          <p>Your brain takes roughly 4–6 minutes to enter deep focus. Committing to just 25 minutes lowers friction so you start immediately without procrastination.</p>
+          <ul>
+            <li><strong>Minutes 0–5:</strong> Set one crystal-clear micro-goal in the Table Goals tab.</li>
+            <li><strong>Minutes 5–25:</strong> Single-task mode. Keep a scratchpad nearby for stray thoughts so you don't open new tabs.</li>
+            <li><strong>5-Minute Recharge:</strong> Step away from screens, stretch, or sip water—avoid scrolling feeds.</li>
+          </ul>
+          <h3>2. Designing Your Study Trigger</h3>
+          <p>Pair a consistent ambient soundscape (like Rain on Window + Soft Lofi) with your study timer so your brain associates the audio cue with focus.</p>
+        `
+      },
+      {
+        id: 'active-recall',
+        title: 'Active Recall & Spaced Repetition',
+        tier: 'free',
+        priceLabel: 'Free',
+        desc: 'Stop passively re-reading notes. Use retrieval practice and the 1-3-7-21 day review curve.',
+        content: `
+          <h3>1. Why Re-Reading Fails</h3>
+          <p>Familiarity is not mastery. True memory formation happens when you force your brain to retrieve an answer from scratch without looking at the textbook.</p>
+          <ul>
+            <li><strong>Closed-Book Blurting:</strong> Read a section, close the book, and write down everything you remember on a blank sheet.</li>
+            <li><strong>Question-First Notes:</strong> Turn every heading into a question in the margin instead of highlighting paragraphs.</li>
+          </ul>
+          <h3>2. The 1-3-7-21 Spaced Schedule</h3>
+          <p>Review new concepts after <strong>1 day</strong>, <strong>3 days</strong>, <strong>7 days</strong>, and <strong>21 days</strong> to flatten the Ebbinghaus forgetting curve.</p>
+        `
+      },
+      {
+        id: 'feynman-mastery',
+        title: 'Feynman Technique Mastery',
+        tier: 'beans',
+        beanCost: 50,
+        priceLabel: '50 ☕ Beans',
+        desc: 'Break down complex science, math, and theory concepts so clearly you could teach them to a beginner.',
+        content: `
+          <h3>1. The 4-Step Feynman Loop</h3>
+          <ul>
+            <li><strong>Step 1 — Pick a Concept:</strong> Write the topic title at the top of a blank page.</li>
+            <li><strong>Step 2 — Teach It Simply:</strong> Explain it in plain, everyday language without hiding behind jargon.</li>
+            <li><strong>Step 3 — Spot the Gaps:</strong> Wherever you hesitate or use vague hand-waving, return to your source material.</li>
+            <li><strong>Step 4 — Analogies &amp; Refinement:</strong> Create a concrete real-world analogy to lock the intuition in permanently.</li>
+          </ul>
+          <h3>2. Self-Audit Checklist</h3>
+          <p>If you cannot explain <em>why</em> a formula works in two sentences, you have memorized a procedure rather than understood the concept.</p>
+        `
+      },
+      {
+        id: 'exam-blueprint',
+        title: 'Exam Night Rapid Review Blueprint',
+        tier: 'beans',
+        beanCost: 100,
+        priceLabel: '100 ☕ Beans',
+        desc: 'High-yield triage system for the final 48 hours before major tests—maximize score without burning out.',
+        content: `
+          <h3>1. Traffic-Light Topic Triage</h3>
+          <p>Categorize every syllabus chapter into Red (weak + high weight), Yellow (shaky), and Green (confident). Spend 70% of your final review converting Yellow and Red topics.</p>
+          <ul>
+            <li><strong>48 Hours Out:</strong> Timed past-paper practice under real exam constraints.</li>
+            <li><strong>24 Hours Out:</strong> Error-log review—only redo problems you got wrong previously.</li>
+            <li><strong>Final Evening:</strong> Formula sheet skim + 8 hours of sleep (REM sleep consolidates procedural memory).</li>
+          </ul>
+        `
+      },
+      {
+        id: 'coding-debugging',
+        title: 'Coding & Logic Debugging Handbook',
+        tier: 'beans',
+        beanCost: 150,
+        priceLabel: '150 ☕ Beans',
+        desc: 'Systematic root-cause isolation, rubber-duck debugging, and algorithmic problem-solving patterns.',
+        content: `
+          <h3>1. Binary Search Your Bugs</h3>
+          <p>Never guess randomly when code breaks. Cut the problem space in half by logging inputs and outputs at the midpoint of your logic pipeline.</p>
+          <ul>
+            <li><strong>Reproduce Consistently:</strong> Find the smallest input that triggers the bug.</li>
+            <li><strong>Check Assumptions First:</strong> Verify variable types, off-by-one loop bounds, and async timing.</li>
+            <li><strong>Rubber-Duck Walkthrough:</strong> Read each line aloud and state what it <em>actually</em> does, not what you intended it to do.</li>
+          </ul>
+        `
+      },
+      {
+        id: 'stem-olympiad-pro',
+        title: 'Ultimate STEM & Olympiad Playbook',
+        tier: 'pro',
+        realPrice: '₹149 / $1.99',
+        priceLabel: '₹149 / $1.99',
+        desc: 'Pro Edition: Advanced problem-solving heuristics, invariant tricks, estimation drills, and competition pacing.',
+        content: `
+          <h3>1. Competition Heuristics &amp; Invariants</h3>
+          <p>When facing an unfamiliar Olympiad or honors STEM problem, test extreme cases first (n = 0, n = 1, infinity) to uncover hidden patterns.</p>
+          <ul>
+            <li><strong>Dimensional Analysis:</strong> Always check units before committing to algebraic manipulation.</li>
+            <li><strong>Work Backwards:</strong> Assume the target state is achieved and trace the necessary predecessor states.</li>
+            <li><strong>Time-Box Pacing:</strong> If a problem yields zero structural progress after 8 minutes, mark it and harvest remaining points first.</li>
+          </ul>
+        `
+      },
+      {
+        id: 'all-access-bundle',
+        title: 'All-Access Scholar Master Bundle',
+        tier: 'pro',
+        isBundle: true,
+        realPrice: '₹299 / $3.99',
+        priceLabel: '₹299 / $3.99',
+        desc: 'Pro Bundle: Instantly unlocks EVERY current study guide in the library plus +100 Bonus Coffee Beans!',
+        content: `
+          <h3>🎉 All-Access Scholar Master Pass Activated!</h3>
+          <p>Thank you for supporting Lofi &amp; Latte! Every study guide in the library is now permanently unlocked on your profile, and +100 Bonus Coffee Beans have been added to your balance.</p>
+          <ul>
+            <li>Full access to Feynman Mastery, Exam Blueprint, Debugging Handbook, and STEM Olympiad Playbook.</li>
+            <li>Combine these frameworks with 25-minute Pomodoro sprints for maximum retention.</li>
+          </ul>
+        `
+      }
+    ];
+
+    /* ==========================================================================
+       2. STATE, PROFILE, BEANS ECONOMY & MULTIPLAYER SYNC
+       ========================================================================== */
+    const urlParams = new URLSearchParams(window.location.search);
+    let roomCode = (urlParams.get('room') || 'LATTE4').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'LATTE4';
+
+    const USER_ID = 'user_' + Math.random().toString(36).slice(2, 9);
+    const savedName = localStorage.getItem('ll_username') || 'Scholar';
+    const savedColor = localStorage.getItem('ll_color') || '#e69d45';
+    const savedBeans = parseInt(localStorage.getItem('ll_beans') || '50', 10);
+    const savedOwnedGuides = JSON.parse(localStorage.getItem('ll_owned_guides') || '["pomodoro-101","active-recall"]');
+
+    const state = {
+      roomCode,
+      weatherIndex: 1, // 0: Sunny Day, 1: Golden Hour, 2: Rainy Night
+      beans: isNaN(savedBeans) ? 50 : savedBeans,
+      ownedGuides: new Set(savedOwnedGuides),
+      activeGuideFilter: 'all',
+      pendingCheckoutGuide: null,
+      me: {
+        id: USER_ID,
+        name: savedName,
+        color: savedColor,
+        zone: 'window',
+        status: 'Studying',
+        seatIndex: 0
+      },
+      peers: new Map(),
+      goals: JSON.parse(localStorage.getItem('ll_goals_' + roomCode) || 'null') || [
+        { id: 1, text: 'Complete 2 Pomodoro focus blocks', done: false, rewarded: false },
+        { id: 2, text: 'Review chapter notes & flashcards', done: false, rewarded: false }
+      ],
+      notes: localStorage.getItem('ll_notes_' + roomCode) || 'Welcome to our shared study table! ✨\nDrop your goals for this session below.'
+    };
+
+    const ZONE_NAMES = {
+      window: 'Window Booths',
+      lounge: 'Reading Nook',
+      group: 'Group Table',
+      bar: 'Espresso Bar'
+    };
+
+    function saveEconomyState() {
+      localStorage.setItem('ll_beans', String(state.beans));
+      localStorage.setItem('ll_owned_guides', JSON.stringify([...state.ownedGuides]));
+    }
+
+    function updateBeansUI(animate = false) {
+      document.getElementById('beans-count').textContent = state.beans;
+      document.getElementById('modal-beans-count').textContent = state.beans;
+      if (animate) {
+        const pill = document.getElementById('beans-pill');
+        pill.classList.remove('pop');
+        void pill.offsetWidth;
+        pill.classList.add('pop');
+      }
+    }
+
+    function awardBeans(amount, reason) {
+      state.beans += amount;
+      saveEconomyState();
+      updateBeansUI(true);
+      showToast(`+${amount} ☕ Beans earned! (${reason})`);
+    }
+
+    function updateUsername(newName) {
+      const cleaned = newName.trim().slice(0, 18);
+      if (!cleaned) return;
+      state.me.name = cleaned;
+      localStorage.setItem('ll_username', cleaned);
+      document.getElementById('display-username').textContent = cleaned;
+      document.getElementById('profile-name-input').value = cleaned;
+      renderPeersList();
+      broadcastPresence();
+      showToast(`Username updated to "${cleaned}"`);
+    }
+
+    // BroadcastChannel for real-time cross-tab multiplayer
+    let channel = null;
+    function connectRoomChannel(code) {
+      if (channel) channel.close();
+      state.roomCode = code;
+      document.getElementById('room-code-display').textContent = code;
+      const shareUrl = `${window.location.origin}${window.location.pathname}?room=${code}`;
+      document.getElementById('invite-url-input').value = shareUrl;
+      window.history.replaceState({}, '', `?room=${code}`);
+
+      if ('BroadcastChannel' in window) {
+        channel = new BroadcastChannel('lofi_latte_room_' + code);
+        channel.onmessage = (e) => {
+          const msg = e.data;
+          if (!msg || msg.senderId === USER_ID) return;
+
+          if (msg.type === 'presence') {
+            const isNew = !state.peers.has(msg.user.id);
+            state.peers.set(msg.user.id, { ...msg.user, lastSeen: Date.now() });
+            syncPeerAvatar(msg.user);
+            renderPeersList();
+            if (isNew) {
+              showToast(`${msg.user.name} joined ${ZONE_NAMES[msg.user.zone]}!`);
+              broadcastPresence();
+            }
+          } else if (msg.type === 'notes') {
+            state.notes = msg.notes;
+            document.getElementById('shared-notes').value = msg.notes;
+            localStorage.setItem('ll_notes_' + code, msg.notes);
+          } else if (msg.type === 'goals') {
+            // Preserve local reward claim status when syncing goals
+            const localRewardMap = new Map(state.goals.map(g => [g.id, g.rewarded]));
+            state.goals = msg.goals.map(g => ({
+              ...g,
+              rewarded: localRewardMap.get(g.id) || g.rewarded || false
+            }));
+            localStorage.setItem('ll_goals_' + code, JSON.stringify(state.goals));
+            renderGoals();
+          } else if (msg.type === 'leave') {
+            removePeer(msg.senderId);
+          }
+        };
+      }
+      broadcastPresence();
+    }
+
+    function broadcastPresence() {
+      if (channel) {
+        channel.postMessage({ type: 'presence', senderId: USER_ID, user: state.me });
+      }
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (channel) channel.postMessage({ type: 'leave', senderId: USER_ID });
+    });
+
+    setInterval(() => {
+      broadcastPresence();
+      const now = Date.now();
+      for (const [id, peer] of state.peers.entries()) {
+        if (!peer.isBot && now - peer.lastSeen > 12000) {
+          removePeer(id);
+        }
+      }
+    }, 3500);
+
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      toast.textContent = text;
+      toast.classList.add('show');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => toast.classList.remove('show'), 2800);
+    }
+
+    /* ==========================================================================
+       3. PROCEDURAL WEB AUDIO SOUNDSCAPE SYNTHESIZER
+       ========================================================================== */
+    class CafeAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+        this.gains = {};
+        this.muted = false;
+        this.started = false;
+        this.chordTimer = null;
+      }
+
+      init() {
+        if (this.started) return;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioCtx();
+
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.85;
+        this.masterGain.connect(this.ctx.destination);
+
+        // 1. Rain on Window
+        this.gains.rain = this.ctx.createGain();
+        this.gains.rain.gain.value = 0.14;
+        const rainFilter = this.ctx.createBiquadFilter();
+        rainFilter.type = 'bandpass';
+        rainFilter.frequency.value = 1100;
+        rainFilter.Q.value = 0.7;
+        this.createNoiseSource().connect(rainFilter);
+        rainFilter.connect(this.gains.rain);
+        this.gains.rain.connect(this.masterGain);
+
+        // 2. Cafe Murmur
+        this.gains.cafe = this.ctx.createGain();
+        this.gains.cafe.gain.value = 0.18;
+        const cafeFilter = this.ctx.createBiquadFilter();
+        cafeFilter.type = 'lowpass';
+        cafeFilter.frequency.value = 420;
+        this.createNoiseSource().connect(cafeFilter);
+        cafeFilter.connect(this.gains.cafe);
+        this.gains.cafe.connect(this.masterGain);
+
+        // 3. Hearth Crackle
+        this.gains.fire = this.ctx.createGain();
+        this.gains.fire.gain.value = 0.08;
+        const fireFilter = this.ctx.createBiquadFilter();
+        fireFilter.type = 'highpass';
+        fireFilter.frequency.value = 1800;
+        this.createCrackleSource().connect(fireFilter);
+        fireFilter.connect(this.gains.fire);
+        this.gains.fire.connect(this.masterGain);
+
+        // 4. Warm Lofi Rhodes Chords
+        this.gains.lofi = this.ctx.createGain();
+        this.gains.lofi.gain.value = 0.16;
+        const lofiFilter = this.ctx.createBiquadFilter();
+        lofiFilter.type = 'lowpass';
+        lofiFilter.frequency.value = 950;
+        this.gains.lofi.connect(lofiFilter);
+        lofiFilter.connect(this.masterGain);
+
+        this.startLofiLoop();
+        this.started = true;
+      }
+
+      createNoiseSource() {
+        const bufferSize = this.ctx.sampleRate * 3;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let b0 = 0, b1 = 0, b2 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.997 * b0 + white * 0.029;
+          b1 = 0.985 * b1 + white * 0.032;
+          b2 = 0.950 * b2 + white * 0.048;
+          data[i] = (b0 + b1 + b2 + white * 0.18) * 0.5;
+        }
+        const src = this.ctx.createBufferSource();
+        src.buffer = buffer;
+        src.loop = true;
+        src.start();
+        return src;
+      }
+
+      createCrackleSource() {
+        const bufferSize = this.ctx.sampleRate * 3;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() > 0.996 ? (Math.random() * 2 - 1) * 0.9 : (Math.random() * 2 - 1) * 0.015;
+        }
+        const src = this.ctx.createBufferSource();
+        src.buffer = buffer;
+        src.loop = true;
+        src.start();
+        return src;
+      }
+
+      startLofiLoop() {
+        const chords = [
+          [261.63, 329.63, 392.00, 493.88],
+          [220.00, 261.63, 329.63, 392.00],
+          [174.61, 220.00, 261.63, 329.63],
+          [196.00, 246.94, 293.66, 349.23]
+        ];
+        let step = 0;
+
+        const playChord = () => {
+          if (!this.ctx || this.muted) return;
+          const now = this.ctx.currentTime;
+          const freqs = chords[step % chords.length];
+          step++;
+
+          freqs.forEach((f, idx) => {
+            const osc = this.ctx.createOscillator();
+            const noteGain = this.ctx.createGain();
+            osc.type = idx % 2 === 0 ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(f + (Math.random() - 0.5) * 1.2, now);
+
+            noteGain.gain.setValueAtTime(0.0001, now);
+            noteGain.gain.linearRampToValueAtTime(0.14, now + 0.35);
+            noteGain.gain.exponentialRampToValueAtTime(0.0008, now + 3.4);
+
+            osc.connect(noteGain);
+            noteGain.connect(this.gains.lofi);
+            osc.start(now + idx * 0.04);
+            osc.stop(now + 3.6);
+          });
+        };
+
+        playChord();
+        this.chordTimer = setInterval(playChord, 3800);
+      }
+
+      setVolume(channelName, sliderVal) {
+        if (!this.started) this.init();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const norm = sliderVal / 100;
+        const scale = channelName === 'lofi' ? 0.35 : 0.42;
+        if (this.gains[channelName]) {
+          this.gains[channelName].gain.setTargetAtTime(norm * scale, this.ctx.currentTime, 0.08);
+        }
+      }
+
+      playChime() {
+        if (!this.started) this.init();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const now = this.ctx.currentTime;
+        [523.25, 659.25, 783.99].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + i * 0.14);
+          g.gain.setValueAtTime(0.001, now + i * 0.14);
+          g.gain.linearRampToValueAtTime(0.18, now + i * 0.14 + 0.04);
+          g.gain.exponentialRampToValueAtTime(0.0005, now + i * 0.14 + 1.1);
+          osc.connect(g);
+          g.connect(this.masterGain);
+          osc.start(now + i * 0.14);
+          osc.stop(now + i * 0.14 + 1.2);
+        });
+      }
+
+      toggleMute() {
+        if (!this.started) this.init();
+        this.muted = !this.muted;
+        this.masterGain.gain.setTargetAtTime(this.muted ? 0 : 0.85, this.ctx.currentTime, 0.06);
+        return this.muted;
+      }
+    }
+
+    const audioEngine = new CafeAudioEngine();
+    window.addEventListener('pointerdown', () => {
+      if (!audioEngine.started) audioEngine.init();
+      else if (audioEngine.ctx && audioEngine.ctx.state === 'suspended') audioEngine.ctx.resume();
+    }, { once: true });
+
+    /* ==========================================================================
+       4. THREE.JS 3D COZY CAFE SCENE
+       ========================================================================== */
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1f1510);
+    scene.fog = new THREE.FogExp2(0x1f1510, 0.022);
+
+    const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(-1.5, 4.2, 6.2);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxPolarAngle = Math.PI * 0.47;
+    controls.minPolarAngle = 0.25;
+    controls.minDistance = 2.5;
+    controls.maxDistance = 14.5;
+    controls.target.set(-4.2, 1.3, -1.5);
+
+    const mats = {
+      woodDark: new THREE.MeshStandardMaterial({ color: 0x4a2f1d, roughness: 0.55, metalness: 0.05 }),
+      woodWarm: new THREE.MeshStandardMaterial({ color: 0x7c4d2b, roughness: 0.48, metalness: 0.04 }),
+      floorWood: new THREE.MeshStandardMaterial({ color: 0x3b2416, roughness: 0.62 }),
+      brickWall: new THREE.MeshStandardMaterial({ color: 0x6b3a2c, roughness: 0.85 }),
+      creamWall: new THREE.MeshStandardMaterial({ color: 0xdccbb8, roughness: 0.8 }),
+      velvetTerracotta: new THREE.MeshStandardMaterial({ color: 0xb85638, roughness: 0.78 }),
+      velvetSage: new THREE.MeshStandardMaterial({ color: 0x5c7a54, roughness: 0.78 }),
+      brass: new THREE.MeshStandardMaterial({ color: 0xd8a24a, roughness: 0.28, metalness: 0.78 }),
+      ceramicWhite: new THREE.MeshStandardMaterial({ color: 0xf5efe6, roughness: 0.25 }),
+      coffeeLiquid: new THREE.MeshStandardMaterial({ color: 0x3d2112, roughness: 0.15 }),
+      plantLeaf: new THREE.MeshStandardMaterial({ color: 0x3f6b38, roughness: 0.55 }),
+      terracottaPot: new THREE.MeshStandardMaterial({ color: 0xb55d3d, roughness: 0.75 }),
+      windowGlass: new THREE.MeshPhysicalMaterial({
+        color: 0xffd7a8,
+        transparent: true,
+        opacity: 0.24,
+        roughness: 0.1,
+        metalness: 0.1
+      }),
+      lampBulb: new THREE.MeshStandardMaterial({
+        color: 0xffdf9e,
+        emissive: 0xffa73b,
+        emissiveIntensity: 2.2
+      })
+    };
+
+    const hemiLight = new THREE.HemisphereLight(0xffdfb8, 0x3a2418, 0.75);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xffb469, 2.2);
+    sunLight.position.set(-12, 9, -4);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(2048, 2048);
+    sunLight.shadow.camera.near = 1;
+    sunLight.shadow.camera.far = 35;
+    const d = 11;
+    sunLight.shadow.camera.left = -d;
+    sunLight.shadow.camera.right = d;
+    sunLight.shadow.camera.top = d;
+    sunLight.shadow.camera.bottom = -d;
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight);
+
+    const interactiveObjects = [];
+    const steamParticles = [];
+    const deskLampLights = [];
+
+    function buildRoomShell() {
+      const floor = new THREE.Mesh(new THREE.BoxGeometry(16, 0.3, 14), mats.floorWood);
+      floor.position.set(0, -0.15, 0);
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      const plankMat = new THREE.MeshStandardMaterial({ color: 0x2a180e, roughness: 0.7 });
+      for (let x = -7.5; x <= 7.5; x += 1.0) {
+        const line = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.01, 13.8), plankMat);
+        line.position.set(x, 0.005, 0);
+        scene.add(line);
+      }
+
+      const backWall = new THREE.Mesh(new THREE.BoxGeometry(16, 5.5, 0.3), mats.brickWall);
+      backWall.position.set(0, 2.75, -7);
+      backWall.receiveShadow = true;
+      scene.add(backWall);
+
+      const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, 5.5, 14), mats.creamWall);
+      rightWall.position.set(8, 2.75, 0);
+      rightWall.receiveShadow = true;
+      scene.add(rightWall);
+
+      const wainscot = new THREE.Mesh(new THREE.BoxGeometry(0.34, 1.3, 14), mats.woodDark);
+      wainscot.position.set(7.98, 0.65, 0);
+      scene.add(wainscot);
+
+      const leftGroup = new THREE.Group();
+      const baseWall = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.0, 14), mats.woodDark);
+      baseWall.position.set(-8, 0.5, 0);
+      leftGroup.add(baseWall);
+
+      const topBeam = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.1, 14), mats.woodDark);
+      topBeam.position.set(-8, 4.95, 0);
+      leftGroup.add(topBeam);
+
+      [-6.8, -2.3, 2.3, 6.8].forEach(zPos => {
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.38, 3.4, 0.32), mats.woodDark);
+        pillar.position.set(-8, 2.7, zPos);
+        pillar.castShadow = true;
+        leftGroup.add(pillar);
+      });
+
+      const glassPane = new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.4, 13.6), mats.windowGlass);
+      glassPane.position.set(-8, 2.7, 0);
+      glassPane.userData = { interactType: 'window' };
+      interactiveObjects.push(glassPane);
+      leftGroup.add(glassPane);
+      scene.add(leftGroup);
+
+      const skyDome = new THREE.Mesh(
+        new THREE.PlaneGeometry(34, 18),
+        new THREE.MeshBasicMaterial({ color: 0xf49b56 })
+      );
+      skyDome.rotation.y = Math.PI / 2;
+      skyDome.position.set(-15, 5, 0);
+      skyDome.name = 'outdoorBackdrop';
+      scene.add(skyDome);
+
+      for (let i = 0; i < 6; i++) {
+        const tree = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(1.6 + (i % 3) * 0.4, 1),
+          new THREE.MeshStandardMaterial({ color: 0x2e4c29, roughness: 0.9 })
+        );
+        tree.position.set(-11.5, 1.8 + (i % 2) * 0.6, -6 + i * 2.5);
+        scene.add(tree);
+      }
+
+      for (let z = -5; z <= 5; z += 3.3) {
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(16, 0.24, 0.28), mats.woodDark);
+        beam.position.set(0, 5.38, z);
+        scene.add(beam);
+      }
+    }
+
+    function createPendantLight(x, y, z) {
+      const group = new THREE.Group();
+      const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 5.4 - y), mats.woodDark);
+      cord.position.set(x, y + (5.4 - y) / 2, z);
+      group.add(cord);
+
+      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.24, 20, 1, true), mats.brass);
+      shade.position.set(x, y, z);
+      group.add(shade);
+
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), mats.lampBulb);
+      bulb.position.set(x, y - 0.05, z);
+      group.add(bulb);
+
+      const pLight = new THREE.PointLight(0xffb563, 1.35, 7.5, 1.6);
+      pLight.position.set(x, y - 0.2, z);
+      group.add(pLight);
+
+      scene.add(group);
+    }
+
+    function createCoffeeMug(x, y, z) {
+      const mugGroup = new THREE.Group();
+      mugGroup.position.set(x, y, z);
+
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.072, 0.16, 18), mats.ceramicWhite);
+      cup.position.y = 0.08;
+      cup.castShadow = true;
+      mugGroup.add(cup);
+
+      const coffee = new THREE.Mesh(new THREE.CylinderGeometry(0.076, 0.076, 0.01, 16), mats.coffeeLiquid);
+      coffee.position.y = 0.145;
+      mugGroup.add(coffee);
+
+      const handle = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.012, 8, 16, Math.PI), mats.ceramicWhite);
+      handle.rotation.z = -Math.PI / 2;
+      handle.position.set(0.085, 0.085, 0);
+      mugGroup.add(handle);
+
+      for (let i = 0; i < 3; i++) {
+        const puff = new THREE.Mesh(
+          new THREE.SphereGeometry(0.024, 8, 8),
+          new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })
+        );
+        puff.position.set((Math.random() - 0.5) * 0.04, 0.18 + i * 0.07, (Math.random() - 0.5) * 0.04);
+        puff.userData = { baseY: 0.18, offset: i * 1.9 };
+        mugGroup.add(puff);
+        steamParticles.push(puff);
+      }
+
+      cup.userData = { interactType: 'mug', mugGroup };
+      interactiveObjects.push(cup);
+      scene.add(mugGroup);
+    }
+
+    function createLaptop(x, y, z, rotY = 0) {
+      const laptop = new THREE.Group();
+      laptop.position.set(x, y, z);
+      laptop.rotation.y = rotY;
+
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.02, 0.32), mats.brass);
+      base.position.y = 0.01;
+      laptop.add(base);
+
+      const screenPivot = new THREE.Group();
+      screenPivot.position.set(0, 0.02, -0.15);
+      screenPivot.rotation.x = -0.26;
+
+      const lid = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.30, 0.015), mats.woodDark);
+      lid.position.set(0, 0.15, 0);
+      screenPivot.add(lid);
+
+      const display = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.42, 0.26),
+        new THREE.MeshBasicMaterial({ color: 0xffe4b8 })
+      );
+      display.position.set(0, 0.15, 0.009);
+      screenPivot.add(display);
+
+      laptop.add(screenPivot);
+      scene.add(laptop);
+    }
+
+    function createDeskLamp(x, y, z) {
+      const group = new THREE.Group();
+      group.position.set(x, y, z);
+
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.03, 16), mats.brass);
+      base.position.y = 0.015;
+      group.add(base);
+
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.36, 10), mats.brass);
+      stem.position.y = 0.19;
+      group.add(stem);
+
+      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.15, 16), mats.velvetSage);
+      shade.position.set(0.05, 0.36, 0);
+      shade.rotation.z = -0.35;
+      group.add(shade);
+
+      const light = new THREE.PointLight(0xffb86c, 1.1, 3.8, 1.5);
+      light.position.set(0.08, 0.28, 0);
+      group.add(light);
+      deskLampLights.push(light);
+
+      shade.userData = { interactType: 'lamp', light };
+      interactiveObjects.push(shade);
+      scene.add(group);
+    }
+
+    function createPottedPlant(x, y, z, scale = 1) {
+      const plant = new THREE.Group();
+      plant.position.set(x, y, z);
+      plant.scale.setScalar(scale);
+
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.19, 0.38, 16), mats.terracottaPot);
+      pot.position.y = 0.19;
+      pot.castShadow = true;
+      plant.add(pot);
+
+      for (let i = 0; i < 7; i++) {
+        const angle = (i / 7) * Math.PI * 2;
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), mats.plantLeaf);
+        leaf.scale.set(0.65, 1.6, 0.25);
+        leaf.position.set(Math.cos(angle) * 0.16, 0.52 + (i % 2) * 0.14, Math.sin(angle) * 0.16);
+        leaf.rotation.z = Math.cos(angle) * -0.45;
+        leaf.rotation.x = Math.sin(angle) * 0.45;
+        leaf.castShadow = true;
+        plant.add(leaf);
+      }
+
+      scene.add(plant);
+    }
+
+    function buildFurnitureZones() {
+      // ZONE 1: WINDOW BOOTHS
+      [-3.4, 1.2].forEach((zCenter, idx) => {
+        const table = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.08, 1.1), mats.woodWarm);
+        table.position.set(-6.4, 0.78, zCenter);
+        table.castShadow = true;
+        table.receiveShadow = true;
+        scene.add(table);
+
+        const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.24, 0.76, 14), mats.woodDark);
+        ped.position.set(-6.4, 0.38, zCenter);
+        scene.add(ped);
+
+        [-0.82, 0.82].forEach(zOff => {
+          const seat = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.16, 0.55), mats.velvetTerracotta);
+          seat.position.set(-6.4, 0.44, zCenter + zOff);
+          seat.castShadow = true;
+          scene.add(seat);
+
+          const back = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.65, 0.16), mats.velvetTerracotta);
+          back.position.set(-6.4, 0.82, zCenter + zOff + (zOff > 0 ? 0.22 : -0.22));
+          back.castShadow = true;
+          scene.add(back);
+        });
+
+        createLaptop(-6.5, 0.82, zCenter - 0.15, 0);
+        createCoffeeMug(-6.05, 0.82, zCenter + 0.18);
+        if (idx === 0) createDeskLamp(-6.85, 0.82, zCenter + 0.25);
+        createPendantLight(-6.4, 2.55, zCenter);
+      });
+
+      // ZONE 2: QUIET READING NOOK
+      const rug = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.1, 2.1, 0.02, 32),
+        new THREE.MeshStandardMaterial({ color: 0x8f4733, roughness: 0.92 })
+      );
+      rug.position.set(-4.6, 0.01, -5.0);
+      rug.receiveShadow = true;
+      scene.add(rug);
+
+      const coffeeTable = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.07, 24), mats.woodWarm);
+      coffeeTable.position.set(-4.6, 0.44, -5.0);
+      coffeeTable.castShadow = true;
+      scene.add(coffeeTable);
+
+      const ctLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.22, 0.42, 14), mats.woodDark);
+      ctLeg.position.set(-4.6, 0.21, -5.0);
+      scene.add(ctLeg);
+
+      createCoffeeMug(-4.45, 0.48, -4.9);
+
+      const chairPositions = [
+        { x: -5.6, z: -5.2, rot: 1.2 },
+        { x: -3.7, z: -5.4, rot: -0.9 }
+      ];
+      chairPositions.forEach(cp => {
+        const chair = new THREE.Group();
+        chair.position.set(cp.x, 0, cp.z);
+        chair.rotation.y = cp.rot;
+
+        const base = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.24, 0.82), mats.velvetSage);
+        base.position.y = 0.32;
+        base.castShadow = true;
+        chair.add(base);
+
+        const back = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.58, 0.2), mats.velvetSage);
+        back.position.set(0, 0.68, -0.32);
+        back.castShadow = true;
+        chair.add(back);
+
+        scene.add(chair);
+      });
+
+      const shelf = new THREE.Group();
+      shelf.position.set(-2.2, 0, -6.55);
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(1.8, 3.2, 0.42), mats.woodDark);
+      frame.position.y = 1.6;
+      frame.castShadow = true;
+      shelf.add(frame);
+
+      const bookColors = [0xd96b43, 0xe69d45, 0x7ea172, 0x6b9ac4, 0xf2e3d5];
+      for (let row = 0; row < 4; row++) {
+        const yRow = 0.55 + row * 0.72;
+        for (let b = 0; b < 9; b++) {
+          const book = new THREE.Mesh(
+            new THREE.BoxGeometry(0.11, 0.36 + (b % 3) * 0.05, 0.28),
+            new THREE.MeshStandardMaterial({ color: bookColors[(row + b) % bookColors.length], roughness: 0.7 })
+          );
+          book.position.set(-0.68 + b * 0.16, yRow, 0.06);
+          shelf.add(book);
+        }
+      }
+      scene.add(shelf);
+
+      // ZONE 3: GROUP STUDY TABLE
+      const bigTable = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.1, 1.5), mats.woodWarm);
+      bigTable.position.set(0.6, 0.78, -1.6);
+      bigTable.castShadow = true;
+      bigTable.receiveShadow = true;
+      scene.add(bigTable);
+
+      [[-0.7, -2.1], [1.9, -2.1], [-0.7, -1.1], [1.9, -1.1]].forEach(([lx, lz]) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.76, 10), mats.woodDark);
+        leg.position.set(lx, 0.38, lz);
+        scene.add(leg);
+      });
+
+      [-0.35, 1.45].forEach(lx => createLaptop(lx, 0.83, -1.9, 0));
+      createLaptop(0.55, 0.83, -1.25, Math.PI);
+      createCoffeeMug(0.1, 0.83, -1.7);
+      createCoffeeMug(1.05, 0.83, -1.45);
+      createDeskLamp(1.9, 0.83, -1.6);
+      createPendantLight(0.6, 2.55, -1.6);
+
+      // ZONE 4: ESPRESSO BAR
+      const counter = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.05, 4.6), mats.woodDark);
+      counter.position.set(5.6, 0.525, -2.4);
+      counter.castShadow = true;
+      counter.receiveShadow = true;
+      scene.add(counter);
+
+      const counterTop = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.08, 4.72), mats.woodWarm);
+      counterTop.position.set(5.6, 1.08, -2.4);
+      scene.add(counterTop);
+
+      const espresso = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.55, 0.85), mats.brass);
+      espresso.position.set(5.65, 1.38, -1.6);
+      espresso.castShadow = true;
+      scene.add(espresso);
+
+      const displayCase = new THREE.Mesh(
+        new THREE.BoxGeometry(0.6, 0.48, 1.1),
+        new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.32, roughness: 0.1 })
+      );
+      displayCase.position.set(5.55, 1.35, -3.2);
+      scene.add(displayCase);
+
+      [-3.8, -2.4, -1.0].forEach(sz => {
+        const stoolSeat = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.07, 18), mats.velvetTerracotta);
+        stoolSeat.position.set(4.55, 0.74, sz);
+        stoolSeat.castShadow = true;
+        scene.add(stoolSeat);
+
+        const stoolLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.72, 10), mats.woodDark);
+        stoolLeg.position.set(4.55, 0.36, sz);
+        scene.add(stoolLeg);
+      });
+      createPendantLight(5.4, 2.65, -2.4);
+
+      createPottedPlant(-7.2, 0, -6.1, 1.25);
+      createPottedPlant(-7.2, 0, 3.8, 1.1);
+      createPottedPlant(3.2, 0, -6.2, 1.35);
+      createPottedPlant(6.9, 0, 1.4, 1.15);
+    }
+
+    buildRoomShell();
+    buildFurnitureZones();
+
+    /* ==========================================================================
+       5. STUDY ZONES, CAMERA PRESETS & 3D AVATARS
+       ========================================================================== */
+    const STUDY_ZONES = {
+      window: {
+        cameraPos: new THREE.Vector3(-2.6, 2.6, 1.4),
+        target: new THREE.Vector3(-6.4, 1.0, -1.2),
+        seats: [
+          { pos: new THREE.Vector3(-6.4, 0.45, -4.2), rotY: 0 },
+          { pos: new THREE.Vector3(-6.4, 0.45, -2.6), rotY: Math.PI },
+          { pos: new THREE.Vector3(-6.4, 0.45, 0.4), rotY: 0 },
+          { pos: new THREE.Vector3(-6.4, 0.45, 2.0), rotY: Math.PI }
+        ]
+      },
+      lounge: {
+        cameraPos: new THREE.Vector3(-1.4, 2.5, -2.5),
+        target: new THREE.Vector3(-4.6, 0.9, -5.0),
+        seats: [
+          { pos: new THREE.Vector3(-5.55, 0.36, -5.15), rotY: 1.2 },
+          { pos: new THREE.Vector3(-3.75, 0.36, -5.35), rotY: -0.9 },
+          { pos: new THREE.Vector3(-4.6, 0.1, -3.7), rotY: Math.PI }
+        ]
+      },
+      group: {
+        cameraPos: new THREE.Vector3(0.6, 3.1, 2.2),
+        target: new THREE.Vector3(0.6, 0.9, -1.6),
+        seats: [
+          { pos: new THREE.Vector3(-0.35, 0.45, -2.55), rotY: 0 },
+          { pos: new THREE.Vector3(1.45, 0.45, -2.55), rotY: 0 },
+          { pos: new THREE.Vector3(0.55, 0.45, -0.65), rotY: Math.PI },
+          { pos: new THREE.Vector3(2.45, 0.45, -1.6), rotY: -Math.PI / 2 }
+        ]
+      },
+      bar: {
+        cameraPos: new THREE.Vector3(2.1, 2.4, -0.3),
+        target: new THREE.Vector3(5.3, 1.1, -2.4),
+        seats: [
+          { pos: new THREE.Vector3(4.55, 0.72, -3.8), rotY: Math.PI / 2 },
+          { pos: new THREE.Vector3(4.55, 0.72, -2.4), rotY: Math.PI / 2 },
+          { pos: new THREE.Vector3(4.55, 0.72, -1.0), rotY: Math.PI / 2 }
+        ]
+      }
+    };
+
+    let targetCamPos = STUDY_ZONES.window.cameraPos.clone();
+    let targetLookAt = STUDY_ZONES.window.target.clone();
+    let isCameraTransitioning = false;
+
+    const avatarMeshes = new Map();
+    const labelsLayer = document.getElementById('labels-layer');
+
+    function createAvatarMesh(user) {
+      const group = new THREE.Group();
+
+      const torsoMat = new THREE.MeshStandardMaterial({ color: user.color, roughness: 0.65 });
+      const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.32, 8, 16), torsoMat);
+      torso.position.y = 0.34;
+      torso.castShadow = true;
+      group.add(torso);
+
+      const headMat = new THREE.MeshStandardMaterial({ color: 0xf2ccb0, roughness: 0.5 });
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), headMat);
+      head.position.y = 0.68;
+      head.castShadow = true;
+      group.add(head);
+
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.02, 8, 20, Math.PI * 1.1), mats.woodDark);
+      band.position.y = 0.7;
+      band.rotation.z = -0.15;
+      group.add(band);
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'avatar-label';
+      labelsLayer.appendChild(labelEl);
+
+      scene.add(group);
+      return { group, torsoMat, labelEl, user };
+    }
+
+    function syncPeerAvatar(user) {
+      let entry = avatarMeshes.get(user.id);
+      if (!entry) {
+        entry = createAvatarMesh(user);
+        avatarMeshes.set(user.id, entry);
+      }
+      entry.user = user;
+      entry.torsoMat.color.set(user.color);
+
+      const zoneDef = STUDY_ZONES[user.zone] || STUDY_ZONES.window;
+      const allUsersInZone = [state.me, ...state.peers.values()].filter(u => u.zone === user.zone);
+      const idx = Math.max(0, allUsersInZone.findIndex(u => u.id === user.id));
+      const seat = zoneDef.seats[idx % zoneDef.seats.length];
+
+      entry.group.position.copy(seat.pos);
+      entry.group.rotation.y = seat.rotY;
+
+      const isBreak = user.status !== 'Studying';
+      entry.labelEl.innerHTML = `
+        <span class="avatar-dot ${isBreak ? 'break' : ''}"></span>
+        <span>${escapeHtml(user.name)}</span>
+        <span class="avatar-zone-tag">• ${user.status}</span>
+      `;
+    }
+
+    function removePeer(id) {
+      state.peers.delete(id);
+      const entry = avatarMeshes.get(id);
+      if (entry) {
+        scene.remove(entry.group);
+        entry.labelEl.remove();
+        avatarMeshes.delete(id);
+      }
+      renderPeersList();
+    }
+
+    function refreshAllAvatars() {
+      syncPeerAvatar(state.me);
+      for (const peer of state.peers.values()) {
+        syncPeerAvatar(peer);
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+    }
+
+    /* ==========================================================================
+       6. WEATHER & LIGHTING CYCLER
+       ========================================================================== */
+    const WEATHER_MODES = [
+      {
+        name: 'Sunny Morning',
+        icon: '☀️',
+        bg: 0x2d231a,
+        sky: 0xffe0b2,
+        sunColor: 0xfff0d4,
+        sunIntensity: 2.6,
+        hemiIntensity: 1.0,
+        rainDefault: 0
+      },
+      {
+        name: 'Golden Hour',
+        icon: '🌇',
+        bg: 0x1f1510,
+        sky: 0xf49b56,
+        sunColor: 0xffa756,
+        sunIntensity: 2.2,
+        hemiIntensity: 0.75,
+        rainDefault: 35
+      },
+      {
+        name: 'Rainy Night',
+        icon: '🌧️',
+        bg: 0x0e131b,
+        sky: 0x182436,
+        sunColor: 0x6b8cce,
+        sunIntensity: 0.85,
+        hemiIntensity: 0.45,
+        rainDefault: 70
+      }
+    ];
+
+    function cycleWeather() {
+      state.weatherIndex = (state.weatherIndex + 1) % WEATHER_MODES.length;
+      const w = WEATHER_MODES[state.weatherIndex];
+
+      scene.background.setHex(w.bg);
+      scene.fog.color.setHex(w.bg);
+      const backdrop = scene.getObjectByName('outdoorBackdrop');
+      if (backdrop) backdrop.material.color.setHex(w.sky);
+
+      sunLight.color.setHex(w.sunColor);
+      sunLight.intensity = w.sunIntensity;
+      hemiLight.intensity = w.hemiIntensity;
+
+      document.getElementById('weather-icon').textContent = w.icon;
+      document.getElementById('weather-label').textContent = w.name;
+
+      const rainSlider = document.getElementById('vol-rain');
+      rainSlider.value = w.rainDefault;
+      document.getElementById('vol-rain-val').textContent = w.rainDefault + '%';
+      if (audioEngine.started) audioEngine.setVolume('rain', w.rainDefault);
+
+      showToast(`Ambience switched to ${w.name}`);
+    }
+
+    /* ==========================================================================
+       7. RAYCASTING FOR 3D PROPS
+       ========================================================================== */
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let downPos = { x: 0, y: 0 };
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      downPos = { x: e.clientX, y: e.clientY };
+      isCameraTransitioning = false;
+    });
+
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      const dist = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+      if (dist > 6) return;
+
+      pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+
+      const hits = raycaster.intersectObjects(interactiveObjects, false);
+      if (hits.length > 0) {
+        const hit = hits[0].object;
+        const type = hit.userData.interactType;
+        if (type === 'mug') {
+          audioEngine.playChime();
+          const g = hit.userData.mugGroup;
+          g.position.y += 0.08;
+          setTimeout(() => { g.position.y -= 0.08; }, 220);
+          showToast('☕ Fresh sip of warm vanilla latte!');
+        } else if (type === 'lamp') {
+          const l = hit.userData.light;
+          l.intensity = l.intensity > 0 ? 0 : 1.15;
+          showToast(l.intensity > 0 ? '💡 Desk lamp switched on' : '🌑 Desk lamp switched off');
+        } else if (type === 'window') {
+          cycleWeather();
+        }
+      }
+    });
+
+    /* ==========================================================================
+       8. STUDY GUIDES LIBRARY, ECONOMY & CHECKOUT LOGIC
+       ========================================================================== */
+    function renderGuidesGrid() {
+      const grid = document.getElementById('guides-grid');
+      const filter = state.activeGuideFilter;
+      grid.innerHTML = '';
+
+      const filtered = STUDY_GUIDES.filter(g => {
+        const isOwned = state.ownedGuides.has(g.id);
+        if (filter === 'owned') return isOwned;
+        if (filter === 'free') return g.tier === 'free';
+        if (filter === 'beans') return g.tier === 'beans';
+        if (filter === 'pro') return g.tier === 'pro';
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; grid-column: 1/-1; text-align: center; padding: 24px 0;">No study guides match this filter yet.</p>`;
+        return;
+      }
+
+      filtered.forEach(guide => {
+        const isOwned = state.ownedGuides.has(guide.id);
+        const card = document.createElement('div');
+        card.className = 'guide-card';
+
+        let badgeClass = 'badge-free';
+        let badgeText = 'Free Guide';
+        if (guide.tier === 'beans') {
+          badgeClass = 'badge-beans';
+          badgeText = isOwned ? 'Unlocked • ☕' : guide.priceLabel;
+        } else if (guide.tier === 'pro') {
+          badgeClass = 'badge-pro';
+          badgeText = isOwned ? 'Unlocked • Pro' : `Pro • ${guide.priceLabel}`;
+        }
+
+        let btnClass = 'btn-read';
+        let btnText = '📖 Read Guide';
+        if (!isOwned) {
+          if (guide.tier === 'beans') {
+            btnClass = 'btn-buy-beans';
+            btnText = `Unlock for ${guide.beanCost} ☕`;
+          } else if (guide.tier === 'pro') {
+            btnClass = 'btn-buy-pro';
+            btnText = `Buy (${guide.realPrice})`;
+          }
+        }
+
+        card.innerHTML = `
+          <div>
+            <span class="guide-badge ${badgeClass}">${badgeText}</span>
+            <h3 class="guide-title">${escapeHtml(guide.title)}</h3>
+            <p class="guide-desc">${escapeHtml(guide.desc)}</p>
+          </div>
+          <button class="guide-action-btn ${btnClass}">${btnText}</button>
+        `;
+
+        card.querySelector('button').addEventListener('click', () => {
+          if (isOwned) {
+            openGuideReader(guide);
+          } else if (guide.tier === 'beans') {
+            purchaseWithBeans(guide);
+          } else if (guide.tier === 'pro') {
+            openProCheckout(guide);
+          }
+        });
+
+        grid.appendChild(card);
+      });
+    }
+
+    function purchaseWithBeans(guide) {
+      if (state.beans < guide.beanCost) {
+        const needed = guide.beanCost - state.beans;
+        showToast(`Need ${needed} more ☕ Beans! Complete study goals (+25 ☕) to earn more.`);
+        return;
+      }
+      state.beans -= guide.beanCost;
+      state.ownedGuides.add(guide.id);
+      saveEconomyState();
+      updateBeansUI(true);
+      audioEngine.playChime();
+      renderGuidesGrid();
+      showToast(`Unlocked "${guide.title}"!`);
+      openGuideReader(guide);
+    }
+
+    function openProCheckout(guide) {
+      state.pendingCheckoutGuide = guide;
+      document.getElementById('checkout-item-title').textContent = guide.title;
+      document.getElementById('checkout-item-price').textContent = guide.realPrice;
+      document.getElementById('checkout-modal').classList.add('open');
+    }
+
+    function completeProPurchase() {
+      const guide = state.pendingCheckoutGuide;
+      if (!guide) return;
+
+      if (guide.isBundle) {
+        STUDY_GUIDES.forEach(g => state.ownedGuides.add(g.id));
+        state.beans += 100;
+      } else {
+        state.ownedGuides.add(guide.id);
+      }
+
+      saveEconomyState();
+      updateBeansUI(true);
+      audioEngine.playChime();
+      document.getElementById('checkout-modal').classList.remove('open');
+      renderGuidesGrid();
+      showToast(`🎉 Unlocked "${guide.title}"!`);
+      openGuideReader(guide);
+    }
+
+    function openGuideReader(guide) {
+      document.getElementById('guides-store-view').style.display = 'none';
+      document.getElementById('guides-reader-view').style.display = 'flex';
+      document.getElementById('reader-title').textContent = guide.title;
+      document.getElementById('reader-badge').textContent =
+        guide.tier === 'pro' ? 'Pro Edition' : guide.tier === 'beans' ? 'Scholar Edition' : 'Free Edition';
+      document.getElementById('reader-content').innerHTML = guide.content;
+    }
+
+    function closeGuideReader() {
+      document.getElementById('guides-reader-view').style.display = 'none';
+      document.getElementById('guides-store-view').style.display = 'flex';
+      renderGuidesGrid();
+    }
+
+    /* ==========================================================================
+       9. UI BINDINGS (POMODORO, ZONES, GOALS, USERNAME & MODALS)
+       ========================================================================== */
+    let timerSeconds = 25 * 60;
+    let currentModeDuration = 25;
+    let timerRunning = false;
+    let timerInterval = null;
+    let currentModeName = 'Focus';
+
+    const timerDisplay = document.getElementById('timer-display');
+    const timerStartBtn = document.getElementById('timer-start-btn');
+
+    function updateTimerDisplay() {
+      const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+      const s = (timerSeconds % 60).toString().padStart(2, '0');
+      timerDisplay.textContent = `${m}:${s}`;
+    }
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        clearInterval(timerInterval);
+        timerRunning = false;
+        currentModeDuration = parseInt(btn.dataset.minutes, 10);
+        timerSeconds = currentModeDuration * 60;
+        currentModeName = btn.dataset.mode;
+        timerStartBtn.textContent = `▶ Start ${currentModeName}`;
+        updateTimerDisplay();
+
+        state.me.status = currentModeName === 'Focus' ? 'Studying' : 'On Break';
+        refreshAllAvatars();
+        renderPeersList();
+        broadcastPresence();
+      });
+    });
+
+    timerStartBtn.addEventListener('click', () => {
+      if (timerRunning) {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        timerStartBtn.textContent = `▶ Resume`;
+      } else {
+        timerRunning = true;
+        timerStartBtn.textContent = `⏸ Pause`;
+        timerInterval = setInterval(() => {
+          if (timerSeconds > 0) {
+            timerSeconds--;
+            updateTimerDisplay();
+          } else {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            timerStartBtn.textContent = `▶ Start ${currentModeName}`;
+            audioEngine.playChime();
+            if (currentModeName === 'Focus') {
+              awardBeans(40, `${currentModeDuration}m Focus Block Complete`);
+            } else {
+              showToast(`⏰ ${currentModeName} complete! Ready for the next round.`);
+            }
+          }
+        }, 1000);
+      }
+    });
+
+    document.getElementById('timer-reset-btn').addEventListener('click', () => {
+      clearInterval(timerInterval);
+      timerRunning = false;
+      timerSeconds = currentModeDuration * 60;
+      timerStartBtn.textContent = `▶ Start ${currentModeName}`;
+      updateTimerDisplay();
+    });
+
+    // Soundscape Sliders
+    ['rain', 'cafe', 'lofi', 'fire'].forEach(key => {
+      const slider = document.getElementById('vol-' + key);
+      const valLabel = document.getElementById('vol-' + key + '-val');
+      slider.addEventListener('input', () => {
+        valLabel.textContent = slider.value + '%';
+        audioEngine.setVolume(key, parseInt(slider.value, 10));
+      });
+    });
+
+    document.getElementById('mute-all-btn').addEventListener('click', (e) => {
+      const isMuted = audioEngine.toggleMute();
+      e.target.textContent = isMuted ? '🔇 Muted' : '🔊 Audio On';
+    });
+
+    // Study Zone Switching
+    document.querySelectorAll('.zone-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const zoneKey = btn.dataset.zone;
+        state.me.zone = zoneKey;
+        const z = STUDY_ZONES[zoneKey];
+        targetCamPos.copy(z.cameraPos);
+        targetLookAt.copy(z.target);
+        isCameraTransitioning = true;
+
+        refreshAllAvatars();
+        renderPeersList();
+        broadcastPresence();
+      });
+    });
+
+    // Dock Toggles
+    document.getElementById('toggle-left-btn').addEventListener('click', (e) => {
+      document.getElementById('left-dock').classList.toggle('collapsed');
+      e.currentTarget.classList.toggle('active');
+    });
+
+    document.getElementById('toggle-right-btn').addEventListener('click', (e) => {
+      document.getElementById('right-dock').classList.toggle('collapsed');
+      e.currentTarget.classList.toggle('active');
+    });
+
+    // Right Dock Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // Peers Rendering
+    function renderPeersList() {
+      const container = document.getElementById('peers-list');
+      const all = [state.me, ...state.peers.values()];
+      document.getElementById('peer-count').textContent = all.length;
+
+      container.innerHTML = all.map(u => `
+        <div class="peer-item">
+          <div class="peer-info">
+            <div class="peer-swatch" style="background:${u.color};">
+              ${escapeHtml(u.name.slice(0, 1).toUpperCase())}
+            </div>
+            <div>
+              <div style="font-weight:600;">${escapeHtml(u.name)} ${u.id === USER_ID ? '(You)' : ''}</div>
+              <div class="peer-sub">${ZONE_NAMES[u.zone]} • ${u.status}</div>
+            </div>
+          </div>
+          <span class="avatar-dot ${u.status !== 'Studying' ? 'break' : ''}"></span>
+        </div>
+      `).join('');
+    }
+
+    // Demo Study Buddy Simulator
+    const DEMO_BUDDIES = [
+      { name: 'Maya', color: '#7ea172', zone: 'window', status: 'Studying' },
+      { name: 'Liam', color: '#6b9ac4', zone: 'group', status: 'Studying' },
+      { name: 'Sora', color: '#b5838d', zone: 'lounge', status: 'On Break' }
+    ];
+    let demoIndex = 0;
+
+    document.getElementById('add-demo-buddy-btn').addEventListener('click', () => {
+      const template = DEMO_BUDDIES[demoIndex % DEMO_BUDDIES.length];
+      demoIndex++;
+      const botId = 'bot_' + demoIndex;
+      const bot = { id: botId, ...template, isBot: true, lastSeen: Date.now() };
+      state.peers.set(botId, bot);
+      refreshAllAvatars();
+      renderPeersList();
+      showToast(`${bot.name} pulled up a chair at ${ZONE_NAMES[bot.zone]}!`);
+    });
+
+    // Goals List with Coffee Bean Rewards
+    function renderGoals() {
+      const list = document.getElementById('goals-list');
+      list.innerHTML = state.goals.map(g => `
+        <div class="goal-item ${g.done ? 'done' : ''}" data-id="${g.id}">
+          <div class="goal-left">
+            <div class="goal-check">${g.done ? '✓' : ''}</div>
+            <span class="goal-text">${escapeHtml(g.text)}</span>
+          </div>
+          <span class="goal-bounty">${g.rewarded ? '✓ Earned' : '+25 ☕'}</span>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.goal-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const id = Number(el.dataset.id);
+          const item = state.goals.find(g => g.id === id);
+          if (item) {
+            item.done = !item.done;
+            if (item.done && !item.rewarded) {
+              item.rewarded = true;
+              awardBeans(25, 'Study Goal Completed');
+              audioEngine.playChime();
+            }
+            localStorage.setItem('ll_goals_' + state.roomCode, JSON.stringify(state.goals));
+            renderGoals();
+            if (channel) channel.postMessage({ type: 'goals', senderId: USER_ID, goals: state.goals });
+          }
+        });
+      });
+    }
+
+    function addGoal() {
+      const input = document.getElementById('goal-input');
+      const text = input.value.trim();
+      if (!text) return;
+      state.goals.unshift({ id: Date.now(), text, done: false, rewarded: false });
+      input.value = '';
+      localStorage.setItem('ll_goals_' + state.roomCode, JSON.stringify(state.goals));
+      renderGoals();
+      if (channel) channel.postMessage({ type: 'goals', senderId: USER_ID, goals: state.goals });
+    }
+
+    document.getElementById('add-goal-btn').addEventListener('click', addGoal);
+    document.getElementById('goal-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addGoal();
+    });
+
+    // Shared Notes
+    const notesEl = document.getElementById('shared-notes');
+    notesEl.value = state.notes;
+    notesEl.addEventListener('input', () => {
+      state.notes = notesEl.value;
+      localStorage.setItem('ll_notes_' + state.roomCode, state.notes);
+      if (channel) channel.postMessage({ type: 'notes', senderId: USER_ID, notes: state.notes });
+    });
+
+    // Top Bar Inline Username Editor
+    const usernamePill = document.getElementById('username-pill');
+    document.getElementById('display-username').textContent = state.me.name;
+
+    usernamePill.addEventListener('click', () => {
+      if (usernamePill.querySelector('input')) return;
+      const currentName = state.me.name;
+      usernamePill.innerHTML = `
+        <span>👤</span>
+        <input type="text" class="user-inline-input" id="inline-name-input" maxlength="18" value="${escapeHtml(currentName)}">
+      `;
+      const input = document.getElementById('inline-name-input');
+      input.focus();
+      input.select();
+
+      const commitInlineName = () => {
+        const val = input.value.trim() || currentName;
+        usernamePill.innerHTML = `
+          <span>👤</span>
+          <span id="display-username">${escapeHtml(val)}</span>
+          <span style="font-size: 11px; color: var(--text-muted);">✎</span>
+        `;
+        if (val !== currentName) {
+          updateUsername(val);
+        }
+      };
+
+      input.addEventListener('blur', commitInlineName);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') input.blur();
+        if (e.key === 'Escape') {
+          input.value = currentName;
+          input.blur();
+        }
+      });
+    });
+
+    // Invite & Profile Modal
+    const inviteModal = document.getElementById('invite-modal');
+    const nameInput = document.getElementById('profile-name-input');
+    nameInput.value = state.me.name;
+
+    document.getElementById('open-invite-btn').addEventListener('click', () => {
+      nameInput.value = state.me.name;
+      inviteModal.classList.add('open');
+    });
+    document.getElementById('close-invite-btn').addEventListener('click', () => inviteModal.classList.remove('open'));
+    inviteModal.addEventListener('click', (e) => { if (e.target === inviteModal) inviteModal.classList.remove('open'); });
+
+    document.getElementById('save-name-btn').addEventListener('click', () => {
+      updateUsername(nameInput.value);
+    });
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') updateUsername(nameInput.value);
+    });
+
+    document.querySelectorAll('.swatch-btn').forEach(btn => {
+      if (btn.dataset.color === state.me.color) btn.classList.add('selected');
+      else btn.classList.remove('selected');
+
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.swatch-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        state.me.color = btn.dataset.color;
+        localStorage.setItem('ll_color', state.me.color);
+        refreshAllAvatars();
+        renderPeersList();
+        broadcastPresence();
+      });
+    });
+
+    function copyInviteLink() {
+      const url = document.getElementById('invite-url-input').value;
+      navigator.clipboard?.writeText(url);
+      showToast('📋 Room invite link copied to clipboard!');
+    }
+
+    document.getElementById('copy-link-btn').addEventListener('click', copyInviteLink);
+    document.getElementById('copy-room-badge').addEventListener('click', copyInviteLink);
+
+    document.getElementById('join-room-btn').addEventListener('click', () => {
+      const code = document.getElementById('join-code-input').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (code.length >= 3) {
+        for (const id of [...state.peers.keys()]) removePeer(id);
+        connectRoomChannel(code);
+        inviteModal.classList.remove('open');
+        showToast(`Joined Study Room ${code}`);
+      }
+    });
+
+    // Study Guides Modal Bindings
+    const guidesModal = document.getElementById('guides-modal');
+    document.getElementById('open-guides-btn').addEventListener('click', () => {
+      closeGuideReader();
+      updateBeansUI(false);
+      guidesModal.classList.add('open');
+    });
+    document.getElementById('close-guides-btn').addEventListener('click', () => guidesModal.classList.remove('open'));
+    guidesModal.addEventListener('click', (e) => { if (e.target === guidesModal) guidesModal.classList.remove('open'); });
+    document.getElementById('back-to-store-btn').addEventListener('click', closeGuideReader);
+
+    document.querySelectorAll('.filter-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        state.activeGuideFilter = pill.dataset.filter;
+        renderGuidesGrid();
+      });
+    });
+
+    // Checkout Modal Bindings
+    const checkoutModal = document.getElementById('checkout-modal');
+    document.getElementById('close-checkout-btn').addEventListener('click', () => checkoutModal.classList.remove('open'));
+    checkoutModal.addEventListener('click', (e) => { if (e.target === checkoutModal) checkoutModal.classList.remove('open'); });
+
+    document.querySelectorAll('.pay-method-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.pay-method-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const method = btn.dataset.method;
+        const label = document.getElementById('payment-input-label');
+        const input = document.getElementById('payment-input');
+        const detailBox = document.getElementById('payment-detail-box');
+        if (method === 'upi') {
+          detailBox.style.display = 'block';
+          label.textContent = 'UPI ID';
+          input.placeholder = 'scholar@upi';
+        } else if (method === 'card') {
+          detailBox.style.display = 'block';
+          label.textContent = 'Card Number (Demo)';
+          input.placeholder = '4242 •••• •••• 4242';
+        } else {
+          detailBox.style.display = 'none';
+        }
+      });
+    });
+
+    document.getElementById('confirm-purchase-btn').addEventListener('click', completeProPurchase);
+    document.getElementById('weather-btn').addEventListener('click', cycleWeather);
+
+    // Initialize App State
+    updateBeansUI(false);
+    connectRoomChannel(roomCode);
+    refreshAllAvatars();
+    renderPeersList();
+    renderGoals();
+    renderGuidesGrid();
+
+    /* ==========================================================================
+       10. ANIMATION LOOP & 3D LABEL PROJECTION
+       ========================================================================== */
+    const clock = new THREE.Clock();
+    const tempVec = new THREE.Vector3();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+
+      if (isCameraTransitioning) {
+        camera.position.lerp(targetCamPos, 0.055);
+        controls.target.lerp(targetLookAt, 0.055);
+        if (camera.position.distanceTo(targetCamPos) < 0.04) {
+          isCameraTransitioning = false;
+        }
+      }
+
+      controls.update();
+
+      steamParticles.forEach(p => {
+        const cycle = (t * 0.45 + p.userData.offset) % 1;
+        p.position.y = p.userData.baseY + cycle * 0.24;
+        p.material.opacity = (1 - cycle) * 0.35;
+        p.scale.setScalar(0.8 + cycle * 0.9);
+      });
+
+      let i = 0;
+      for (const entry of avatarMeshes.values()) {
+        entry.group.position.y += Math.sin(t * 2.2 + i) * 0.0006;
+        i++;
+
+        tempVec.copy(entry.group.position);
+        tempVec.y += 1.02;
+        tempVec.project(camera);
+
+        if (tempVec.z > 1) {
+          entry.labelEl.style.opacity = '0';
+        } else {
+          const x = (tempVec.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (-(tempVec.y * 0.5) + 0.5) * window.innerHeight;
+          entry.labelEl.style.left = `${x}px`;
+          entry.labelEl.style.top = `${y}px`;
+          entry.labelEl.style.opacity = '1';
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>
